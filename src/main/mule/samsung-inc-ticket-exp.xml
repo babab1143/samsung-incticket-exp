@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd ">
+    <http:listener-config name="samsung-inc-ticket-exp-httpListenerConfig">
+        <http:listener-connection host="0.0.0.0" port="8081" />
+    </http:listener-config>
+    <apikit:config name="samsung-inc-ticket-exp-config" api="resource::5c2df58c-39fd-4528-86b7-7dc8bbf625bb:samsung-ticket-exp:1.0.2:raml:zip:samsung-inc-ticket-exp.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
+    <http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="54913e18-544c-4725-8b37-580c298e9137">
+        <http:request-connection host="localhost" port="8082" />
+    </http:request-config>
+    <flow name="samsung-inc-ticket-exp-main">
+        <http:listener config-ref="samsung-inc-ticket-exp-httpListenerConfig" path="/api/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:router config-ref="samsung-inc-ticket-exp-config" />
+        <error-handler />
+    </flow>
+    <flow name="samsung-inc-ticket-exp-console">
+        <http:listener config-ref="samsung-inc-ticket-exp-httpListenerConfig" path="/console/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:console config-ref="samsung-inc-ticket-exp-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform>
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+    <flow name="put:\updateTicket:application\json:samsung-inc-ticket-exp-config">
+        <http:request method="PUT" doc:name="Request Call To Proc" doc:id="9b6d1c22-5a7a-4b67-a0a2-3a7e24bcabee" config-ref="HTTP_Request_configuration" path="/api/updateTicket" />
+        <ee:transform>
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  id: "INC456",
+  status: "Ticket update successfully."
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+    <flow name="delete:\DeleteTicket:samsung-inc-ticket-exp-config">
+        <http:request method="DELETE" doc:name="Request Call To Proc" doc:id="b6b74194-e5ea-44b6-ab79-f81de9bf3f83" config-ref="HTTP_Request_configuration" path="/api/DeleteTicket">
+            <http:query-params><![CDATA[#[output application/java
+---
+{
+	"inc" : attributes.queryParams.inc
+}]]]></http:query-params>
+        </http:request>
+        <logger level="INFO" message="delete:\DeleteTicket:samsung-inc-ticket-exp-config" />
+    </flow>
+    <flow name="get:\fetchTickets:samsung-inc-ticket-exp-config">
+        <ee:cache doc:name="Cache" doc:id="44ed92bd-ff87-4358-8650-c540f44e8bc3">
+            <http:request method="GET" doc:name="Request Call To ProcApi" doc:id="d4332640-129b-41b0-acae-6c6a219c2041" config-ref="HTTP_Request_configuration" path="/api/fetchTickets">
+                <http:query-params><![CDATA[#[output application/java
+---
+{
+	"inc" : attributes.queryParams.inc
+}]]]></http:query-params>
+            </http:request>
+        </ee:cache>
+        <ee:transform>
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+    <flow name="post:\raiseTicket:application\json:samsung-inc-ticket-exp-config">
+		<http:request method="POST" doc:name="Request Call To Proc" doc:id="dbc4ef62-0fdc-495d-aef6-3b2c522f880d" config-ref="HTTP_Request_configuration" path="/api/rasieTicket" />
+		<ee:transform>
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  id: "INC456",
+  status: "Ticket created successfully."
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+</mule>
